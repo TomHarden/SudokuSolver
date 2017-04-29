@@ -111,7 +111,7 @@ public class SudokuModel
 						isDone = solveSudoku_Smart(r, c, furtherProgress);//if this returns true, there are no more blanks!
 			if (!furtherProgress)
 			{
-				this.solveSudoku_BruteForce();
+				this.solveSudoku_BruteForce();//cannot deduce via context any further - solve what remains with BruteForce!!
 				return;
 			}
 			furtherProgress = false;
@@ -119,10 +119,11 @@ public class SudokuModel
 	}
 	public boolean solveSudoku_Smart(int row, int column, boolean furtherProgress)
 	{
-		for (int i = 0; i < this.getSquare_EmptyNums(row, column).size(); i++)//given the row and column parameters, iterate through the numbers the square is missing
+		for (int i = 0, missingNum = this.getSquare_EmptyNums(row, column).get(i);
+				i < this.getSquare_EmptyNums(row, column).size();
+				missingNum = this.getSquare_EmptyNums(row, column).get(i++))//given the row and column parameters, iterate through the numbers the square is missing
 		{
 			//iterate through the square's missing numbers
-			int missingNum = this.getSquare_EmptyNums(row, column).get(i);
 			ArrayList<Integer> holdR = new ArrayList<Integer>();//holds rows that are possibilities for missing num
 			ArrayList<Integer> holdC = new ArrayList<Integer>();//holds columns that are possibilities for missing num
 				//go through the rows running through the square
@@ -142,7 +143,8 @@ public class SudokuModel
 				int openColumnIndex = -1;
 				for (int r = 0; r < holdR.size(); r++)
 					for (int c = 0; c < holdC.size(); c++)
-						if (sudokuGrid[holdR.get(r)/*potential rowNum*/].getSet().get(holdC.get(c)/*potential columnNum*/) == Capped_Set.BLANK)//Check if the spot is blank.  If it isnt, it has a number already there!
+						if (sudokuGrid[holdR.get(r)/*potential rowNum*/].getSet().get(holdC.get(c)/*potential columnNum*/)
+								== Capped_Set.BLANK)//Check if the spot is blank.  If it isnt, it has a number already there!
 						{
 							//iterate through the lists that contain the rows/column coordinates of columns and rows that are missing the number
 							openings++;
@@ -158,32 +160,38 @@ public class SudokuModel
 					easyFills(holdR.get(openRowIndex), holdC.get(openColumnIndex));//check if there are any easy fills to be made, now the table has been filled more!
 				}
 		}
-		
-		//check if the table has been fully filled in!
+		return isFullyFilledIn();
+
+	}
+	private boolean isFullyFilledIn()//checks if the table has been fully filled in
+	{
 		for(int r = 0; r < totalRows; r++)
 			if (this.getRow_EmptyNums(r).size() != 0)
 				return false;//is not done
 		return true;//is done
 	}
 	
-	
-	private void easyFills(int row, int column)
+	private void easyFillRow(int row)
 	{
-		//looks at the newly placed element and checks if the row/column/square have one space left.
 		if (getRow_EmptyNums(row).size() == 1)
 		{
 			int index = getRow_AllNums(row).indexOf(Capped_Set.BLANK);//the index of the column within the row that will be filled!
 			sudokuGrid[row].set(index, getRow_EmptyNums(row).get(0));//at the specified location (row, index) assign missing number
 			easyFills(row, index);//with each fill in, check if easy fill!  After the newest spot is checked, return to this function and continue to next if statement!
 		}
+	}
+	private void easyFillColumn(int column)
+	{
 		if (getColumn_EmptyNums(column).size() == 1)
 		{
 			int index = getColumn_AllNums(column).indexOf(Capped_Set.BLANK);//index of row of final number in column
 			sudokuGrid[index].set(column, getColumn_EmptyNums(column).get(0));//at specified location (index, column) assign missing number!
 			easyFills(index, column);//with each fill in, check if easy fill!  After the newest spot is checked, return to this function and continue to next if statement!
 		}
+	}
+	private void easyFillSquare(int row, int column)
+	{
 		if (getSquare_EmptyNums(row, column).size() == 1)
-		{
 			//get the rows and columns of the square.
 			//see which row/column is missing the same number as the missing number of the square
 			//assign to the grid at that location!
@@ -198,10 +206,21 @@ public class SudokuModel
 						{
 							sudokuGrid[r].set(c, getSquare_EmptyNums(row, column).get(0));
 							//SET A NEW NUMBER, NEED TO CHECK FOR MORE EASY FILLS!
-							easyFills(row, column);
+							easyFills(r, c);
+							//easyFills(row, column);//this wont work!!
 							return;
 						}
-		}
+	}
+	private void easyFills(int row, int column)
+	{
+		//looks at the newly placed element and checks if the row/column/square have one space left.
+		//fill rows with only one number missing
+		easyFillRow(row);
+		//fill columns with only one number missing
+		easyFillColumn(column);
+		//fill squares with only one number missing
+		easyFillSquare(row, column);
+		
 	}
 	
 	
@@ -219,9 +238,7 @@ public class SudokuModel
 		if (isInRow(newNum, newRow) ||
 			isInColumn(newNum, newColumn) ||
 			isInSquare(newNum, newRow, newColumn))
-		{
 			return false;
-		}
 		return true;
 	}
 	public boolean isInRow(int newNum, int rowNum) { return sudokuGrid[rowNum].contains(newNum); }
@@ -234,27 +251,15 @@ public class SudokuModel
 	}
 	public boolean isInSquare(int someNum, int rowNum, int colNum)
 	{
-		int startRow, stopRow, startCol, stopCol;
-		startRow = this.getSquareStart_Row(rowNum);
-		stopRow = this.getSquareStop_Row(rowNum);
-		startCol = this.getSquareStart_Column(colNum);
-		stopCol = this.getSquareStop_Column(colNum);
-		for (int r = startRow; r < stopRow; r++)
-		{
-			for (int c = startCol; c < stopCol; c++)
-			{
+		for (int r = this.getSquareStart_Row(rowNum);
+				r < this.getSquareStop_Row(rowNum);
+				r++)
+			for (int c = this.getSquareStart_Column(colNum);
+					c < this.getSquareStop_Column(colNum);
+					c++)
 				//challengeNum = (int) sudokuGrid[r].get(c);
 				if (sudokuGrid[r].get(c) == someNum)
 					return true;
-				/*if (r == 2 && c == 2)
-				{
-					int dummy = 0;
-					if (c > 1111)
-						r = dummy;
-				}*/
-			}
-		}
-		//printGrid();
 		return false;
 	}
 	
@@ -271,10 +276,8 @@ public class SudokuModel
 		ArrayList<Integer> allNums = getRow_AllNums(rowNum);
 		ArrayList<Integer> filledNums = new ArrayList<Integer>();
 		for(int i = 0; i < allNums.size(); i++)
-		{
 			if (allNums.get(i) != Capped_Set.BLANK)
 				filledNums.add(allNums.get(i));
-		}
 		return filledNums;
 	}
 	public ArrayList<Integer> getRow_EmptyNums(int rowNum)
@@ -282,19 +285,15 @@ public class SudokuModel
 		ArrayList<Integer> allNums = getRow_AllNums(rowNum);
 		ArrayList<Integer> emptyNums = new ArrayList<Integer>();
 		for(int i = 0; i < complete.getMaxSize(); i++)
-		{
 			if (!allNums.contains(complete.get(i)))
 				emptyNums.add(complete.get(i));
-		}
 		return emptyNums;
 	}
 	public ArrayList<Integer> getRow_AllNums(int rowNum)
 	{
 		ArrayList<Integer> nums = new ArrayList<Integer>();
 		for(int i = 0; i < sudokuGrid[rowNum].getSet().size(); i++)
-		{
 			nums.add(sudokuGrid[rowNum].getSet().get(i));
-		}
 		return nums;
 	}
 	public int getNumColumns() { return totalColumns; }
@@ -303,10 +302,8 @@ public class SudokuModel
 		ArrayList<Integer> allNums = getColumn_AllNums(colNum);
 		ArrayList<Integer> filledNums = new ArrayList<Integer>();
 		for(int i = 0; i < allNums.size(); i++)
-		{
 			if (allNums.get(i) != Capped_Set.BLANK)
 				filledNums.add(allNums.get(i));
-		}
 		return filledNums;
 	}
 	public ArrayList<Integer> getColumn_EmptyNums(int colNum)
@@ -314,19 +311,15 @@ public class SudokuModel
 		ArrayList<Integer> allNums = getColumn_AllNums(colNum);
 		ArrayList<Integer> emptyNums = new ArrayList<Integer>();
 		for(int i = 0; i < complete.getMaxSize(); i++)
-		{
 			if (!allNums.contains(complete.get(i)))
 				emptyNums.add(complete.get(i));
-		}
 		return emptyNums;
 	}
 	public ArrayList<Integer> getColumn_AllNums(int columnNum)
 	{
 		ArrayList<Integer> nums = new ArrayList<Integer>();
 		for(int i = 0; i < sudokuGrid.length; i++)
-		{
 			nums.add(sudokuGrid[i].getSet().get(columnNum));
-		}
 		return nums;
 	}
 
@@ -335,10 +328,8 @@ public class SudokuModel
 		ArrayList<Integer> allNums = getSquare_AllNums(rowNum, colNum);
 		ArrayList<Integer> filledNums = new ArrayList<Integer>();
 		for(int i = 0; i < allNums.size(); i++)
-		{
 			if (allNums.get(i) != Capped_Set.BLANK)
 				filledNums.add(allNums.get(i));
-		}
 		return filledNums;
 	}
 	public ArrayList<Integer> getSquare_EmptyNums(int rowNum, int colNum)
@@ -346,21 +337,19 @@ public class SudokuModel
 		ArrayList<Integer> allNums = getSquare_AllNums(rowNum, colNum);
 		ArrayList<Integer> emptyNums = new ArrayList<Integer>();
 		for(int i = 0; i < complete.getMaxSize(); i++)
-		{
 			if (!allNums.contains(complete.get(i)))
 				emptyNums.add(complete.get(i));
-		}
 		return emptyNums;
 	}
 	public ArrayList<Integer> getSquare_AllNums(int rowNum, int colNum)
 	{
 		ArrayList<Integer> nums = new ArrayList<Integer>();
-		int startRow = this.getSquareStart_Row(rowNum);
-		int stopRow = this.getSquareStop_Row(rowNum);
-		int startCol = this.getSquareStart_Column(colNum);
-		int stopCol = this.getSquareStop_Column(colNum);
-		for (int r = startRow; r < stopRow; r++)
-			for (int c = startCol; c < stopCol; c++)
+		for (int r = this.getSquareStart_Row(rowNum);
+				r < this.getSquareStop_Row(rowNum);
+				r++)
+			for (int c = this.getSquareStart_Column(colNum);
+					c < this.getSquareStop_Column(colNum);
+					c++)
 				nums.add(sudokuGrid[r].getSet().get(c));
 		return nums;
 	}
@@ -378,10 +367,8 @@ public class SudokuModel
 		ArrayList<Integer> allNums = getSquareRow_AllNums(rowNum, colNum);
 		ArrayList<Integer> filledNums = new ArrayList<Integer>();
 		for(int i = 0; i < allNums.size(); i++)
-		{
 			if (allNums.get(i) != Capped_Set.BLANK)
 				filledNums.add(allNums.get(i));
-		}
 		return filledNums;
 	}
 	public ArrayList<Integer> getSquareColumn_AllNums(int rowNum, int colNum)
@@ -398,15 +385,13 @@ public class SudokuModel
 		ArrayList<Integer> allNums = getSquareColumn_AllNums(rowNum, colNum);
 		ArrayList<Integer> filledNums = new ArrayList<Integer>();
 		for(int i = 0; i < allNums.size(); i++)
-		{
 			if (allNums.get(i) != Capped_Set.BLANK)
 				filledNums.add(allNums.get(i));
-		}
 		return filledNums;
 	}
 	
 	public boolean getSquareRow_IsFull(int rowNum, int colNum) { return (getSquareRow_FilledNums(rowNum, colNum).size() == (int) Math.sqrt(totalRows));	}
-	public int getSquareStart_Row(int rowNum)
+	public int getSquareStart_Row(int rowNum)//+_+ NEED TO FIND A BETTER SOLUTION THAN THIS!!!!
 	{
 		int startRow = rowNum;
 		startRow = (int) (startRow / Math.sqrt(totalSquares));
